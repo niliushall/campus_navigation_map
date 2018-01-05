@@ -14,7 +14,7 @@ void SchoolMap::print() const {
     }
 }
 
-void SchoolMap::menu_login() const {
+void SchoolMap::menu_login() {
     int choice;
 
     do {
@@ -59,7 +59,9 @@ void SchoolMap::Register() const {
     cout << "帐号: ";
     cin >> account;
     cout << "密码: ";
+    system("stty -echo");
     cin >> password;
+    system("stty echo");
     filename = DIR_ACCOUNT + account;
 
     ofstream fout;
@@ -76,14 +78,16 @@ void SchoolMap::Register() const {
     WAIT;
 }
 
-void SchoolMap::administer_login() const {
+void SchoolMap::administer_login() {
     CLEAR;
     
     string account, password, tpassword, filename;
     cout << "请输入管理员帐号: ";
     cin >> account;
     cout << "请输入密码: ";
+    system("stty -echo");
     cin >> tpassword;
+    system("stty echo");
 
     filename = DIR_ADMINISTER + account;
 
@@ -98,7 +102,7 @@ void SchoolMap::administer_login() const {
     menu_administer();  //进入管理员界面
 }
 
-void SchoolMap::menu_administer() const {
+void SchoolMap::menu_administer() {
     do {
         CLEAR;
 
@@ -118,7 +122,7 @@ void SchoolMap::menu_administer() const {
 
         switch(choice) {
             case 0: return;
-            // case 1: addPlace(); break;
+            case 1: addPlace(); break;
             // case 2: delPlace(); break;
             default:
                 cout << "输入错误...\n";
@@ -128,32 +132,78 @@ void SchoolMap::menu_administer() const {
     }while(true);
 }
 
+void SchoolMap::addPlace() {
+    int n;
+    string name, len;
+    cout << "请输入要添加的地点个数: ";
+    cin >> n;
+
+    //添加第i个结点
+    for(int i = 0; i < n; i++) {
+        VertexNode *pNew = new VertexNode;
+        cout << "第" << i+1 << "个地点信息:\n";
+        cout << "名称 : ";
+        cin >> name;
+        pNew->name = name;
+        pNew->FirstEdge = NULL;
+
+        Map.push_back(*pNew);
+
+        //添加邻边
+        int num;
+        cout << "请输入相邻的地点个数 : ";
+        cin >> num;
+        for(int j = 0; j < num; j++) {
+            cout << "请输入第" << j+1 << "个相邻的地点名称 : ";
+            cin >> name;
+
+            //在新结点后添加邻边
+            EdgeNode *p = new EdgeNode;
+            int index;
+            index = findVertexNum(name);
+            p->adjvex = index;
+            p->next = NULL;
+            Map[numVertexes-1].FirstEdge = p;
+
+            //在邻接点后添加新边
+            p = new EdgeNode;
+            p->adjvex = numVertexes-1;
+            p->next = Map[index].FirstEdge;
+            Map[index].FirstEdge = p;
+        }
+        numVertexes++;  //结点个数加1           
+    }
+}
+
 void SchoolMap::login() const {
     CLEAR;
-    
+
     string account, tpassword, password;
     cout << "请输入 :\n\n";
     
     cout << "\t帐号 : ";
     cin >> account;
     cout << "\t密码 : ";
+    system("stty -echo");
     cin >> tpassword;
+    system("stty echo");
     
     string filename = DIR_ACCOUNT + account;
     ifstream fin;
     fin.open(filename);
     if(!fin.is_open()) {
         cout << "没有该用户 " << account << " ...\n";
-        cin.get();
+        WAIT;
         return ;
     }
     fin >> password;
     if(password == tpassword) {
-        cout << "登录成功...\n";
+        cout << "\n\n登录成功...\n";
         WAIT;
         menu();
     } else {
         cout << "密码错误...\n";
+        WAIT;
     }
 }
 
@@ -193,19 +243,16 @@ void SchoolMap::menu() const {
             case 3: SchoolMap::allPath(); WAIT; break;
             case 4: SchoolMap::shortestPath(); WAIT; break;
             case 5: SchoolMap::bestPath(); WAIT; break;
-            // case 6: SchoolMap::bestMap(); WAIT; break;
+            case 6: SchoolMap::bestMap(); WAIT; break;
             default:
                 cout << "数字超出范围，按任意键返回...\n";
                 fflush(stdin);
-                cin.get();
+                // cin.get();
+                WAIT;
                 break;
 
         }
     }while(true);
-    
-
- 
-
 }
 
 int SchoolMap::findVertexNum(const string & str) const {
@@ -371,7 +418,6 @@ void SchoolMap::shortestPathDfs(const int start, const int end, vector<bool> vis
     p = Map[start].FirstEdge;
     visited[start] = true;
     tmp.push_back(start);
-// cout << Map[start].name << ' ' << Map[p->adjvex].name << ' ' << Map[end].name << endl;
 
     while(p) {
         if(p->adjvex != end && !visited[p->adjvex]) {
@@ -440,9 +486,54 @@ void SchoolMap::bestPathDfs(const int start, const int end, vector<bool> visited
     tmp.pop_back();
 }
 
+void SchoolMap::bestMap() const {
+    const int INFINITY = 65535;
+    vector<int> adjvex(MAXVEX, 0);  //存储结点下标
+    vector<int> lowcost(MAXVEX, 0);  //存储邻接边的权值，值为0表示该点已经在生成树中
+
+    EdgeNode *p = Map[0].FirstEdge;
+
+    for(int i = 1; i < numVertexes; i++) {
+        lowcost[i] = INFINITY;
+    }
+
+    int i = 0;
+    while(p) {  //假设从第一个点开始生成树
+        lowcost[i++] = p->length;
+        p = p->next;
+    }
+
+    cout << "最佳布网方案:\n\n";
+
+    int min, current;  //current存储当前最小值的下标
+    for(int i = 1; i < numVertexes; i++) {
+        min = INFINITY;
+        current = 0;
+
+        for(int j = 1; j < numVertexes; j++) {
+            if(lowcost[j] && lowcost[j] < min) {
+                min = lowcost[j];
+                current = j;
+            }
+        }
+        lowcost[current] = 0;
+        cout << "( " << Map[adjvex[current]].name << ", " << Map[current].name << " )" << endl;
+        
+        p = Map[current].FirstEdge;
+        while(p) {
+            if(lowcost[p->adjvex] && p->length < lowcost[p->adjvex]) {
+                lowcost[p->adjvex] = p->length;
+                adjvex[p->adjvex] = current;
+            }
+            p = p->next;
+        }
+    }
+}
+
 int main() {
     SchoolMap map;
-    // map.CreateMapFromFile();
+    map.CreateMapFromFile();
+
     map.menu_login();
 
     return 0;
